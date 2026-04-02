@@ -15,13 +15,23 @@ Future<void> seedData(AppDatabase db) async {
         RoutinesCompanion.insert(id: "back", name: "Espalda"),
       );
 
-  // Ejercicios (🔥 TODOS con muscleGroup)
+  // =========================
+  // 🔥 EJERCICIOS PECHO
+  // =========================
+
   await db.into(db.routineExercises).insert(
         RoutineExercisesCompanion.insert(
           id: "pushups",
           routineId: "chest",
           name: "Flexiones",
           muscleGroup: "Pecho",
+
+          // 🔥 NUEVO (PLAN)
+          targetSets: 3,
+          suggestedMinReps: 6,
+          suggestedMaxReps: 8,
+          hasDropSet: true,
+          restSeconds: 60,
         ),
       );
 
@@ -31,8 +41,17 @@ Future<void> seedData(AppDatabase db) async {
           routineId: "chest",
           name: "Fondos",
           muscleGroup: "Pecho",
+          targetSets: 3,
+          suggestedMinReps: 6,
+          suggestedMaxReps: 10,
+          hasDropSet: true,
+          restSeconds: 60,
         ),
       );
+
+  // =========================
+  // 🔥 EJERCICIOS ESPALDA
+  // =========================
 
   await db.into(db.routineExercises).insert(
         RoutineExercisesCompanion.insert(
@@ -40,10 +59,18 @@ Future<void> seedData(AppDatabase db) async {
           routineId: "back",
           name: "Dominadas",
           muscleGroup: "Espalda",
+          targetSets: 3,
+          suggestedMinReps: 5,
+          suggestedMaxReps: 8,
+          hasDropSet: false,
+          restSeconds: 90,
         ),
       );
 
-  // Plan semanal
+  // =========================
+  // 🔥 PLAN SEMANAL
+  // =========================
+
   await db.into(db.weeklyPlan).insert(
         WeeklyPlanCompanion.insert(
           monday: const Value("chest"),

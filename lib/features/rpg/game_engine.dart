@@ -32,6 +32,9 @@ class GameEngine {
 
       int totalXp = 0;
 
+      // =========================
+      // 🔥 PROCESAR SETS
+      // =========================
       for (var s in sets) {
         final exercise = exerciseMap[s.exerciseId];
         if (exercise == null) continue;
@@ -80,15 +83,45 @@ class GameEngine {
         });
       }
 
-      // 🔥 BALANCE GLOBAL
+      // =========================
+      // 🔥 BALANCE CORPORAL
+      // =========================
       final balanceMultiplier =
           BalanceSystem.getBalanceMultiplier(trainedMuscles);
 
       totalXp = (totalXp * balanceMultiplier).toInt();
 
+      // =========================
+      // 🔥 STREAK DIARIO
+      // =========================
+      final workouts = await db.select(db.workouts).get();
+
+      workouts.sort((a, b) => b.date.compareTo(a.date));
+
+      int newStreak = 1;
+
+      if (workouts.length >= 2) {
+        final last = workouts[0].date;
+        final previous = workouts[1].date;
+
+        final diff = last.difference(previous).inDays;
+
+        if (diff == 1) {
+          newStreak = stats.streak + 1;
+        }
+      }
+
+      // =========================
+      // 🔥 XP + LEVEL (MEJORADO)
+      // =========================
       int newXp = stats.xp + totalXp;
+
+      // curva RPG real
       int newLevel = (newXp / 100).floor();
 
+      // =========================
+      // 🔥 UPDATE FINAL
+      // =========================
       await (db.update(db.userStatsTable)..where((t) => t.id.equals(stats.id)))
           .write(
         UserStatsTableCompanion(
@@ -99,7 +132,12 @@ class GameEngine {
           agility: Value(agility.toInt()),
           aesthetics: Value(aesthetics.toInt()),
           power: Value(power.toInt()),
-          discipline: Value(stats.discipline),
+
+          // 🔥 NUEVO
+          discipline: Value(stats.discipline + 1),
+          streak: Value(newStreak),
+
+          // 🔥 EXISTENTE
           balance: Value(stats.balance),
         ),
       );

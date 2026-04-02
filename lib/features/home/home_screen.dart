@@ -10,6 +10,10 @@ import '../workout/workout_screen.dart';
 import '../workout/seed_data.dart';
 import '../history/history_screen.dart';
 
+// 🔥 NUEVO
+import '../missions/mission_service.dart';
+import '../achievements/achievement_service.dart';
+
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -49,65 +53,124 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
     }
 
+    final db = ref.read(databaseProvider);
+    final missions = MissionService(db).getDailyMissions();
+
     return Scaffold(
       appBar: AppBar(title: const Text("RPG Fitness")),
       body: statsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text("Error: $e")),
         data: (stats) {
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text("Nivel: ${stats.level}"),
-              Text("XP: ${stats.xp}"),
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                // =====================
+                // 🔥 STATS
+                // =====================
+                Text("Nivel: ${stats.level}"),
+                Text("XP: ${stats.xp}"),
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // 🔥 FITNESS STATS
-              Text("Strength: ${stats.strength}"),
-              Text("Endurance: ${stats.endurance}"),
-              Text("Agility: ${stats.agility}"),
-              Text("Aesthetics: ${stats.aesthetics}"),
-              Text("Power: ${stats.power}"),
+                Text("Strength: ${stats.strength}"),
+                Text("Endurance: ${stats.endurance}"),
+                Text("Agility: ${stats.agility}"),
+                Text("Aesthetics: ${stats.aesthetics}"),
+                Text("Power: ${stats.power}"),
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // 🔥 META STATS
-              Text("Discipline: ${stats.discipline}"),
-              Text("Balance: ${stats.balance}"),
+                Text("Discipline: ${stats.discipline}"),
+                Text("Balance: ${stats.balance}"),
 
-              const SizedBox(height: 30),
+                const SizedBox(height: 20),
 
-              ElevatedButton(
-                onPressed: () {
-                  final db = ref.read(databaseProvider);
+                // =====================
+                // 🔥 MISIONES
+                // =====================
+                const Text(
+                  "Misiones",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
 
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => WorkoutScreen(db: db),
-                    ),
+                ...missions.map((m) {
+                  return FutureBuilder(
+                    future: MissionService(db).isCompleted(m),
+                    builder: (context, snap) {
+                      final done = snap.data ?? false;
+
+                      return ListTile(
+                        leading: Icon(
+                          done ? Icons.check : Icons.circle,
+                          color: done ? Colors.green : Colors.grey,
+                        ),
+                        title: Text(m.title),
+                        subtitle: Text(m.description),
+                      );
+                    },
                   );
-                },
-                child: const Text("Ir a entrenar"),
-              ),
+                }),
 
-              const SizedBox(height: 10),
+                const SizedBox(height: 20),
 
-              ElevatedButton(
-                onPressed: () {
-                  final db = ref.read(databaseProvider);
+                // =====================
+                // 🔥 LOGROS
+                // =====================
+                const Text(
+                  "Logros",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
 
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => HistoryScreen(db: db),
-                    ),
-                  );
-                },
-                child: const Text("Ver historial"),
-              ),
-            ],
+                FutureBuilder(
+                  future: AchievementService(db).getAchievements(),
+                  builder: (context, snap) {
+                    if (!snap.hasData) return const SizedBox();
+
+                    final achievements = snap.data!;
+
+                    if (achievements.isEmpty) {
+                      return const Text("Sin logros aún");
+                    }
+
+                    return Column(
+                      children: achievements.map((a) => Text(a)).toList(),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 30),
+
+                // =====================
+                // 🔥 BOTONES
+                // =====================
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => WorkoutScreen(db: db),
+                      ),
+                    );
+                  },
+                  child: const Text("Ir a entrenar"),
+                ),
+
+                const SizedBox(height: 10),
+
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => HistoryScreen(db: db),
+                      ),
+                    );
+                  },
+                  child: const Text("Ver historial"),
+                ),
+              ],
+            ),
           );
         },
       ),

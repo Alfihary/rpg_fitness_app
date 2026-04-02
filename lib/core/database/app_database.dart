@@ -26,7 +26,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 9;
 }
 
 class Routines extends Table {
@@ -41,8 +41,13 @@ class RoutineExercises extends Table {
   TextColumn get id => text()();
   TextColumn get routineId => text()();
   TextColumn get name => text()();
-
   TextColumn get muscleGroup => text()(); // 🔥 NUEVO
+
+  IntColumn get targetSets => integer()();
+  IntColumn get suggestedMinReps => integer()(); // 🔥 solo guía
+  IntColumn get suggestedMaxReps => integer()(); // 🔥 solo guía
+  BoolColumn get hasDropSet => boolean()();
+  IntColumn get restSeconds => integer()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -72,11 +77,14 @@ class Workouts extends Table {
 class WorkoutSets extends Table {
   TextColumn get id => text()();
   TextColumn get workoutId => text()();
-
   TextColumn get exerciseId => text()(); // 🔥 NUEVO
 
   IntColumn get reps => integer()();
   RealColumn get weight => real()();
+
+  IntColumn get setNumber => integer()(); // 🔥
+  IntColumn get restSeconds => integer()(); // 🔥
+  BoolColumn get isDropSet => boolean()(); // 🔥
 
   @override
   Set<Column> get primaryKey => {id};
@@ -99,6 +107,9 @@ class UserStatsTable extends Table {
   // 🔥 META SYSTEM (hábitos / vida)
   IntColumn get discipline => integer()(); // hábitos
   IntColumn get balance => integer()(); // nutrición / estilo de vida
+
+  IntColumn get streak =>
+      integer().withDefault(const Constant(0))(); //streak diario
 
   @override
   Set<Column> get primaryKey => {id};
