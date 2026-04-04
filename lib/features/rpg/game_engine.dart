@@ -10,10 +10,15 @@ class GameEngine {
 
   GameEngine(this.db);
 
-  Future<void> handle(AppEvent event) async {
-    if (event is WorkoutCompletedEvent) {
-      final stats = await db.select(db.userStatsTable).getSingle();
+  int _clampStat(int value) => value < 0 ? 0 : value;
 
+  Future<void> handle(AppEvent event) async {
+    final stats = await db.select(db.userStatsTable).getSingle();
+
+    // =========================
+    // 🟥 WORKOUT SYSTEM
+    // =========================
+    if (event is WorkoutCompletedEvent) {
       final sets = await db.select(db.workoutSets).get();
       final exercises = await db.select(db.routineExercises).get();
 
@@ -32,9 +37,7 @@ class GameEngine {
 
       int totalXp = 0;
 
-      // =========================
       // 🔥 PROCESAR SETS
-      // =========================
       for (var s in sets) {
         final exercise = exerciseMap[s.exerciseId];
         if (exercise == null) continue;
@@ -83,19 +86,14 @@ class GameEngine {
         });
       }
 
-      // =========================
       // 🔥 BALANCE CORPORAL
-      // =========================
       final balanceMultiplier =
           BalanceSystem.getBalanceMultiplier(trainedMuscles);
 
       totalXp = (totalXp * balanceMultiplier).toInt();
 
-      // =========================
-      // 🔥 STREAK DIARIO
-      // =========================
+      // 🔥 STREAK
       final workouts = await db.select(db.workouts).get();
-
       workouts.sort((a, b) => b.date.compareTo(a.date));
 
       int newStreak = 1;
@@ -104,41 +102,87 @@ class GameEngine {
         final last = workouts[0].date;
         final previous = workouts[1].date;
 
-        final diff = last.difference(previous).inDays;
-
-        if (diff == 1) {
+        if (last.difference(previous).inDays == 1) {
           newStreak = stats.streak + 1;
         }
       }
 
-      // =========================
-      // 🔥 XP + LEVEL (MEJORADO)
-      // =========================
       int newXp = stats.xp + totalXp;
-
-      // curva RPG real
       int newLevel = (newXp / 100).floor();
 
-      // =========================
-      // 🔥 UPDATE FINAL
-      // =========================
       await (db.update(db.userStatsTable)..where((t) => t.id.equals(stats.id)))
           .write(
         UserStatsTableCompanion(
           xp: Value(newXp),
           level: Value(newLevel),
-          strength: Value(strength.toInt()),
-          endurance: Value(endurance.toInt()),
-          agility: Value(agility.toInt()),
-          aesthetics: Value(aesthetics.toInt()),
-          power: Value(power.toInt()),
-
-          // 🔥 NUEVO
+          strength: Value(_clampStat(strength.toInt())),
+          endurance: Value(_clampStat(endurance.toInt())),
+          agility: Value(_clampStat(agility.toInt())),
+          aesthetics: Value(_clampStat(aesthetics.toInt())),
+          power: Value(_clampStat(power.toInt())),
           discipline: Value(stats.discipline + 1),
           streak: Value(newStreak),
-
-          // 🔥 EXISTENTE
           balance: Value(stats.balance),
+        ),
+      );
+    }
+
+    // =========================
+    // 🟢 NUTRITION PERFECT
+    // =========================
+    if (event is NutritionPerfectEvent) {
+      const xpGain = 30;
+
+      int newXp = stats.xp + xpGain;
+      int newLevel = (newXp / 100).floor();
+
+      await (db.update(db.userStatsTable)..where((t) => t.id.equals(stats.id)))
+          .write(
+        UserStatsTableCompanion(
+          xp: Value(newXp),
+          level: Value(newLevel),
+          strength: Value(stats.strength + 2),
+          endurance: Value(stats.endurance + 2),
+          balance: Value(stats.balance + 3),
+          discipline: Value(stats.discipline + 1),
+        ),
+      );
+    }
+
+    // =========================
+    // 🟡 LOW ENERGY
+    // =========================
+    if (event is NutritionLowEnergyEvent) {
+      const xpLoss = 10;
+
+      int newXp = (stats.xp - xpLoss);
+      if (newXp < 0) newXp = 0;
+
+      await (db.update(db.userStatsTable)..where((t) => t.id.equals(stats.id)))
+          .write(
+        UserStatsTableCompanion(
+          xp: Value(newXp),
+          endurance: Value(_clampStat(stats.endurance - 3)),
+          balance: Value(_clampStat(stats.balance - 1)),
+        ),
+      );
+    }
+
+    // =========================
+    // 🔴 BAD DIET
+    // =========================
+    if (event is NutritionBadDietEvent) {
+      const xpLoss = 20;
+
+      int newXp = (stats.xp - xpLoss);
+      if (newXp < 0) newXp = 0;
+
+      await (db.update(db.userStatsTable)..where((t) => t.id.equals(stats.id)))
+          .write(
+        UserStatsTableCompanion(
+          xp: Value(newXp),
+          balance: Value(_clampStat(stats.balance - 4)),
+          endurance: Value(_clampStat(stats.endurance - 1)),
         ),
       );
     }

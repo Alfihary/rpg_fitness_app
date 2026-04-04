@@ -21,12 +21,13 @@ LazyDatabase _openConnection() {
   Workouts,
   WorkoutSets,
   UserStatsTable,
+  NutritionLogs,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 }
 
 class Routines extends Table {
@@ -110,6 +111,19 @@ class UserStatsTable extends Table {
 
   IntColumn get streak =>
       integer().withDefault(const Constant(0))(); //streak diario
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class NutritionLogs extends Table {
+  TextColumn get id => text()();
+  TextColumn get mealType => text()(); // breakfast, lunch...
+  IntColumn get calories => integer()();
+  IntColumn get protein => integer()();
+  IntColumn get carbs => integer()();
+  IntColumn get fats => integer()();
+  DateTimeColumn get date => dateTime()();
 
   @override
   Set<Column> get primaryKey => {id};
