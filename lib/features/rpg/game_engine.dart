@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
 import '../../core/database/app_database.dart';
 import '../../core/events/app_event.dart';
+import '../../core/events/nutrition_events.dart'; // 🔥 NUEVO
+
 import '../rpg/muscle_mapper.dart';
 import '../rpg/fatigue_system.dart';
 import '../rpg/balance_system.dart';
@@ -37,7 +39,6 @@ class GameEngine {
 
       int totalXp = 0;
 
-      // 🔥 PROCESAR SETS
       for (var s in sets) {
         final exercise = exerciseMap[s.exerciseId];
         if (exercise == null) continue;
@@ -52,7 +53,6 @@ class GameEngine {
 
         double volume = reps.toDouble() * weight.toDouble();
 
-        // 🔥 FATIGA
         final fatigueMultiplier =
             FatigueSystem.getFatigueMultiplier(muscleCount[muscle]!);
 
@@ -86,13 +86,11 @@ class GameEngine {
         });
       }
 
-      // 🔥 BALANCE CORPORAL
       final balanceMultiplier =
           BalanceSystem.getBalanceMultiplier(trainedMuscles);
 
       totalXp = (totalXp * balanceMultiplier).toInt();
 
-      // 🔥 STREAK
       final workouts = await db.select(db.workouts).get();
       workouts.sort((a, b) => b.date.compareTo(a.date));
 
@@ -183,6 +181,42 @@ class GameEngine {
           xp: Value(newXp),
           balance: Value(_clampStat(stats.balance - 4)),
           endurance: Value(_clampStat(stats.endurance - 1)),
+        ),
+      );
+    }
+
+    // =========================
+    // 🧠 NUTRITION ADVANCED (🔥 NUEVO)
+    // =========================
+    if (event is NutritionEvaluatedEvent) {
+      int strength = stats.strength;
+      int endurance = stats.endurance;
+      int balance = stats.balance;
+
+      final calorieDiff = event.calories - event.targetCalories;
+
+      // 💪 PROTEÍNA
+      if (event.protein >= event.targetProtein) {
+        strength += 2;
+      } else {
+        strength -= 1;
+      }
+
+      // ⚖️ CALORÍAS
+      if (calorieDiff.abs() <= 200) {
+        balance += 2;
+      } else if (calorieDiff < -300) {
+        endurance -= 2;
+      } else if (calorieDiff > 300) {
+        balance -= 2;
+      }
+
+      await (db.update(db.userStatsTable)..where((t) => t.id.equals(stats.id)))
+          .write(
+        UserStatsTableCompanion(
+          strength: Value(_clampStat(strength)),
+          endurance: Value(_clampStat(endurance)),
+          balance: Value(_clampStat(balance)),
         ),
       );
     }

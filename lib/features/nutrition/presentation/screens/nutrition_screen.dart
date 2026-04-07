@@ -9,6 +9,17 @@ import '../widgets/calorie_bar.dart';
 import '../widgets/macro_bar.dart';
 import '../widgets/nutrition_feedback.dart';
 import '../widgets/add_food_dialog.dart';
+import 'nutrition_history_screen.dart';
+
+// 🔥 SUGERENCIAS
+import '../../domain/services/nutrition_suggestions.dart';
+
+// 🔥 IA REAL
+import '../../domain/services/nutrition_ai_service.dart';
+
+// 🔥 EVENTOS RPG
+import 'package:rpg_fitness/core/events/event_bus.dart';
+import 'package:rpg_fitness/core/events/nutrition_events.dart';
 
 class NutritionScreen extends StatefulWidget {
   final NutritionRepository repository;
@@ -33,6 +44,10 @@ class _NutritionScreenState extends State<NutritionScreen> {
 
   NutritionResult? result;
 
+  // 🔥 evitar loops de eventos
+  int lastCalories = -1;
+  int lastProtein = -1;
+
   @override
   void initState() {
     super.initState();
@@ -47,14 +62,34 @@ class _NutritionScreenState extends State<NutritionScreen> {
 
     targetProtein = NutritionCalculator.calculateProteinTarget(widget.profile);
 
-    result = NutritionEvaluator.evaluate(
+    final newResult = NutritionEvaluator.evaluate(
       widget.profile,
       summary,
     );
 
+    // =========================
+    // 🔥 EVENTO RPG (SOLO SI CAMBIA)
+    // =========================
+    if (summary.calories != lastCalories || summary.protein != lastProtein) {
+      EventBus().emit(
+        NutritionEvaluatedEvent(
+          calories: summary.calories,
+          targetCalories: targetCalories,
+          protein: summary.protein,
+          targetProtein: targetProtein,
+        ),
+      );
+
+      lastCalories = summary.calories;
+      lastProtein = summary.protein;
+    }
+
+    if (!mounted) return;
+
     setState(() {
       calories = summary.calories;
       protein = summary.protein;
+      result = newResult;
     });
   }
 
@@ -62,10 +97,25 @@ class _NutritionScreenState extends State<NutritionScreen> {
     showDialog(
       context: context,
       builder: (_) => AddFoodDialog(
-        onSave: (entry) async {
-          await widget.repository.addFood(entry);
-          await load(); // 🔥 refresca UI
+        repository: widget.repository,
+        onSave: (entry, name) async {
+          await widget.repository.addFood(entry, name);
+
+          if (!mounted) return;
+
+          await load();
         },
+      ),
+    );
+  }
+
+  void _goToHistory() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NutritionHistoryScreen(
+          repo: widget.repository,
+        ),
       ),
     );
   }
@@ -78,31 +128,101 @@ class _NutritionScreenState extends State<NutritionScreen> {
       );
     }
 
+    // 🔥 IA REAL
+    final aiSuggestions = NutritionAIService.getSuggestions(
+      calories: calories,
+      targetCalories: targetCalories,
+      protein: protein,
+      targetProtein: targetProtein,
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Nutrición"),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // =========================
+            // 🔥 CALORÍAS
+            // =========================
             CalorieBar(
               current: calories,
               target: targetCalories,
             ),
+
             const SizedBox(height: 16),
+
+            // =========================
+            // 🍗 PROTEÍNA
+            // =========================
             MacroBar(
               label: "Proteína",
               current: protein,
               target: targetProtein,
             ),
+
             const SizedBox(height: 20),
+
+            // =========================
+            // 🚦 FEEDBACK RPG
+            // =========================
             NutritionFeedback(result: result!),
+
+            const SizedBox(height: 20),
+
+            // =========================
+            // 🧠 SUGERENCIA SIMPLE
+            // =========================
+            Text(
+              NutritionSuggestions.getSuggestion(
+                currentCalories: calories,
+                targetCalories: targetCalories,
+                currentProtein: protein,
+                targetProtein: targetProtein,
+              ),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+
+            const SizedBox(height: 15),
+
+            // =========================
+            // 🤖 IA AVANZADA
+            // =========================
+            const Text(
+              "Recomendaciones:",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+
+            const SizedBox(height: 5),
+
+            ...aiSuggestions.map(
+              (s) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text("• $s"),
+              ),
+            ),
+
+            const SizedBox(height: 25),
+
+            // =========================
+            // 📅 HISTORIAL
+            // =========================
+            Center(
+              child: ElevatedButton(
+                onPressed: _goToHistory,
+                child: const Text("Ver historial"),
+              ),
+            ),
           ],
         ),
       ),
 
-      // 🔥 BOTÓN QUE TE FALTABA
+      // =========================
+      // ➕ AGREGAR COMIDA
+      // =========================
       floatingActionButton: FloatingActionButton(
         onPressed: _openAddFoodDialog,
         child: const Icon(Icons.add),

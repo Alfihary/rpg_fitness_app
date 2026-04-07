@@ -27,7 +27,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 }
 
 class Routines extends Table {
@@ -124,6 +124,8 @@ class NutritionLogs extends Table {
   IntColumn get carbs => integer()();
   IntColumn get fats => integer()();
   DateTimeColumn get date => dateTime()();
+
+  TextColumn get foodName => text().withDefault(const Constant(""))();
 
   @override
   Set<Column> get primaryKey => {id};
